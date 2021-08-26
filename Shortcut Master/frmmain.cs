@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Diagnostics;
 
+
 namespace Shortcut_Master
 {
     public partial class frmmain : Form
@@ -23,12 +24,20 @@ namespace Shortcut_Master
 
         private List<TFileDesc> _Files = null;
         private List<TFileDesc> QueryResult = null;
-        private string RootPath = string.Empty;
+        private string StartLocOne = string.Empty;
+        private string StartLocTwo = string.Empty;
         private int lb_index = (-1);
 
         public frmmain()
         {
             InitializeComponent();
+        }
+
+        private string GetPathFromShortCut(string link)
+        {
+            IWshRuntimeLibrary.IWshShell shell = new IWshRuntimeLibrary.WshShell();
+            IWshRuntimeLibrary.IWshShortcut shortcut = (IWshRuntimeLibrary.IWshShortcut)shell.CreateShortcut(link);
+            return shortcut.TargetPath;
         }
 
         private void UpdateStatus(List<TFileDesc> l)
@@ -86,6 +95,8 @@ namespace Shortcut_Master
                 QueryResult.Clear();
                 //Clear list box items
                 lstResults.Items.Clear();
+                //Display the numbers found in list
+                UpdateStatus(_Files);
             }
             else
             {
@@ -98,26 +109,44 @@ namespace Shortcut_Master
                         QueryResult.Add(fd);
                     }
                 }
+                //Clear list box
+                lstResults.Items.Clear();
+                //Fill list box with results
+                foreach (TFileDesc fd in QueryResult)
+                {
+                    //Add item to list box.
+                    lstResults.Items.Add(fd.FileTile);
+                }
+                UpdateStatus(QueryResult);
             }
-            //Clear list box
-            lstResults.Items.Clear();
-            //Fill list box with results
-            foreach (TFileDesc fd in QueryResult)
-            {
-                //Add item to list box.
-                lstResults.Items.Add(fd.FileTile);
-            }
-            UpdateStatus(QueryResult);
         }
 
-        private void RefreshApps()
+        private void RefreshLists()
         {
-            string[] Items = Directory.GetFiles(RootPath, "*.lnk", SearchOption.AllDirectories);
+            StartLocOne = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) +
+            @"\Microsoft\Windows\Start Menu\Programs\";
+
+            lstResults.Items.Clear();
+
+            QueryResult = new List<TFileDesc>();
+            //Create list object
+            _Files = new List<TFileDesc>();
+
+            StartLocTwo = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) +
+                @"\Microsoft\Windows\Start Menu\Programs\";
+
+            //Get a list of all short cuts
+            AddItemsToLists(StartLocOne);
+            AddItemsToLists(StartLocTwo);
+            UpdateStatus(_Files);
+        }
+
+        private void AddItemsToLists(string Loccation)
+        {
+            string[] Items = Directory.GetFiles(Loccation, "*.lnk", SearchOption.AllDirectories);
 
             TFileDesc f_info;
             int s_pos;
-
-            _Files = new List<TFileDesc>();
             
             foreach (string f in Items)
             {
@@ -142,15 +171,23 @@ namespace Shortcut_Master
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            RootPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) +
-                "\\Microsoft\\Windows\\Start Menu\\Programs\\";
-            //Get a list of all short cuts
-            RefreshApps();
-            UpdateStatus(_Files);
+            RefreshLists();
         }
 
         private void txtFind_TextChanged(object sender, EventArgs e)
         {
+            try
+            {
+                if (_Files.Count.Equals(0))
+                {
+                    return;
+                }
+            }
+            catch
+            {
+                return;
+            }
+
             FillAppsList(txtFind.Text.Trim());
         }
 
@@ -185,16 +222,6 @@ namespace Shortcut_Master
             txtFind.Focus();
         }
 
-        private void panel3_Paint(object sender, PaintEventArgs e)
-        {
-
-        }
-
-        private void panel2_Paint(object sender, PaintEventArgs e)
-        {
-
-        }
-
         private void lstResults_DrawItem(object sender, DrawItemEventArgs e)
         {
             bool isSelected = ((e.State & DrawItemState.Selected) == DrawItemState.Selected);
@@ -222,6 +249,102 @@ namespace Shortcut_Master
                 textBrush.Dispose();
             }
             e.DrawFocusRectangle();
+        }
+
+        private void panel3_Paint(object sender, PaintEventArgs e)
+        {
+            Pen p = new Pen(Color.FromArgb(0, 122, 204), 1);
+
+            Graphics g = panel3.CreateGraphics();
+
+            g.DrawRectangle(p, 0, 0, panel3.Width - 1, panel3.Height - 1);
+            g.Dispose();
+
+        }
+
+        private void panel3_Resize(object sender, EventArgs e)
+        {
+            panel3.Invalidate();
+            panel3.Update();
+        }
+
+        private void butMenu_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                Button btnSender = (Button)sender;
+                Point ptLowerLeft = new Point(0, btnSender.Height);
+                ptLowerLeft = btnSender.PointToScreen(ptLowerLeft);
+                mnuMenu.Show(ptLowerLeft);
+            }
+        }
+
+        private void mnuExit_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void mnuAbout_Click(object sender, EventArgs e)
+        {
+            //Display about box.
+            frmAbout frm = new frmAbout();
+            frm.ShowDialog();
+        }
+
+        private void frmmain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _Files.Clear();
+            lstResults.Items.Clear();
+        }
+
+        private void ImgOpenFolder_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                if (lb_index.Equals(-1))
+                {
+                    return;
+                }
+                else
+                {
+                    FileInfo fi = new FileInfo(QueryResult[lb_index].FilePath);
+                    string lzDir = new FileInfo(GetPathFromShortCut(fi.FullName)).Directory.ToString();
+                    ExecApp(lzDir);
+                }
+            }
+        }
+
+        private void ImgRunApp_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                if (lb_index.Equals(-1))
+                {
+                    return;
+                }
+                else
+                {
+                    FileInfo fi = new FileInfo(QueryResult[lb_index].FilePath);
+                    ExecApp(fi.FullName);
+                }
+            }
+        }
+
+        private void mnuRefresh_Click(object sender, EventArgs e)
+        {
+            RefreshLists();
+            txtFind_TextChanged(sender, e);
+
+            if (lb_index != -1)
+            {
+                //Select the list item
+                lstResults.SelectedIndex = lb_index;
+            }
+        }
+
+        private void mnuVInfo_Click(object sender, EventArgs e)
+        {
+            ExecApp("version.txt");
         }
     }
 }

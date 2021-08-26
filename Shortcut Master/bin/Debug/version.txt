@@ -1,0 +1,21 @@
+Shortcut Master
+-------------------------------------------------------------
+Version 1.0
+-------------------------------------------------------------
+
+First build.
+Created GitHub page for project.
+
+-------------------------------------------------------------
+Version 1.2
+-------------------------------------------------------------
+
++ Added Menu.
++ Added about box.
++ Added Refresh items.
++ Added Exit button.
++ Updated GUI.
++ Added option to open programs folder location.
++ Added button to open program.
++ Fix a few bugs and some code tweaks.
++ Added help file.
